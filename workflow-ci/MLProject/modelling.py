@@ -17,17 +17,24 @@ args = parser.parse_args()
 
 try:
     print("Mengatur konfigurasi DagsHub...")
-    # Pastikan variabel ini ada di os.environ (dari GitHub Secrets)
-    if "DAGSHUB_USERNAME" not in os.environ or "DAGSHUB_TOKEN" not in os.environ:
-        print("PERINGATAN: Username/Token tidak ditemukan di environment variables!")
     
-    os.environ['MLFLOW_TRACKING_USERNAME'] = os.environ.get('DAGSHUB_USERNAME', 'hooddz1')
-    os.environ['MLFLOW_TRACKING_PASSWORD'] = os.environ.get('DAGSHUB_TOKEN', '')
+    # Ambil credentials dari Environment Variables (disiapkan oleh GitHub Actions)
+    user = os.environ.get('DAGSHUB_USERNAME')
+    token = os.environ.get('DAGSHUB_TOKEN')
+    
+    if not user or not token:
+        print("PERINGATAN: Username/Token tidak ditemukan di environment variables!")
+        
+        user = "hooddz1" 
+        
+    
+    # Set Environment Variables untuk MLflow internal
+    os.environ['MLFLOW_TRACKING_USERNAME'] = user
+    os.environ['MLFLOW_TRACKING_PASSWORD'] = token
     
     # Set URI
-    DAGSHUB_USERNAME = os.environ.get('DAGSHUB_USERNAME', 'hooddz1')
     DAGSHUB_REPO_NAME = "eksperimen_MSML_hudan-maulana-v2"
-    uri = f"https://dagshub.com/{DAGSHUB_USERNAME}/{DAGSHUB_REPO_NAME}.mlflow"
+    uri = f"https://dagshub.com/{user}/{DAGSHUB_REPO_NAME}.mlflow"
     mlflow.set_tracking_uri(uri)
     print(f"Tracking URI diset ke: {uri}")
     
@@ -74,7 +81,7 @@ def run():
         mlflow.log_param("max_depth", args.max_depth)
         mlflow.log_metric("mae", mae)
 
-        # LOG MODEL (Ini langkah paling krusial yang tadi gagal)
+        
         print("Sedang mengupload model ke DagsHub...")
         mlflow.sklearn.log_model(model, "model")
         print("Upload model selesai.")

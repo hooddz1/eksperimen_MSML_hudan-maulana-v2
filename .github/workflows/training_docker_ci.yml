@@ -41,7 +41,7 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
 
     
-    # --- STEP TRAINING DIPERBAIKI (Direct Python) ---
+    # --- STEP TRAINING 
     - name: Run Training Script Directly
       env:
         # Kita masukkan secrets langsung ke environment step ini

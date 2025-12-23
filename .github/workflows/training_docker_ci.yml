@@ -51,24 +51,47 @@ jobs:
         
         mlflow run . --env-manager=local --experiment-name="Eksperimen_CI_Automatic_Run"
 
-    - name: Build & Push Docker Image
+    
+    - name: Download Model & Build Docker
       run: |
+        # 1. Gunakan Python untuk Download Model (Karena Python Auth-nya sudah sukses)
+        python -c "
+        import mlflow
+        import os
         
-        LAST_RUN_ID=$(python -c "import mlflow; mlflow.set_tracking_uri('https://dagshub.com/${{ secrets.DAGSHUB_USERNAME }}/eksperimen_MSML_hudan-maulana-v2.mlflow'); runs = mlflow.search_runs(experiment_names=['Eksperimen_CI_Automatic_Run']); print(runs.iloc[0].run_id)")
+        # Setup Koneksi
+        dagshub_uri = '${{ env.MLFLOW_TRACKING_URI }}'
+        mlflow.set_tracking_uri(dagshub_uri)
         
-        echo "Run ID ditemukan: $LAST_RUN_ID"
+        print(f'Mencari run di: {dagshub_uri}')
+        
+        # Cari Run Terakhir
+        runs = mlflow.search_runs(experiment_names=['Eksperimen_CI_Automatic_Run'])
+        if runs.empty:
+            raise Exception('Tidak ada run yang ditemukan!')
+            
+        last_run_id = runs.iloc[0].run_id
+        print(f'Run ID ditemukan: {last_run_id}')
+        
+      
+        local_path = mlflow.artifacts.download_artifacts(run_id=last_run_id, artifact_path='model', dst_path='./model_download')
+        print(f'Model sukses didownload ke: {local_path}')
+        "
+        
+        # 2. Build Docker dari File Lokal (Bukan dari Internet/URI)
+        # Kita arahkan path (-m) ke folder hasil download tadi
         
         
-        IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/clv-model-hudan:latest"
+        IMAGE_NAME="huudz/clv-model-hudan:latest"
         
-        echo "Membangun Docker Image: $IMAGE_NAME dari model $LAST_RUN_ID"
+        echo "Membangun Docker Image dari file lokal..."
         
         
         mlflow models build-docker \
-          -m "runs:/$LAST_RUN_ID/model" \
+          -m "./model_download/model" \
           -n "$IMAGE_NAME" \
           --enable-mlserver
 
-        # Upload ke Docker Hub
+        # 3. Upload
         echo "Mengupload ke Docker Hub..."
         docker push "$IMAGE_NAME"

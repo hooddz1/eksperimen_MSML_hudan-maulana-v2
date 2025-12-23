@@ -41,16 +41,25 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
 
     
-    - name: Run MLflow Project (Training)
+    # --- STEP TRAINING DIPERBAIKI (Direct Python) ---
+    - name: Run Training Script Directly
+      env:
+        # Kita masukkan secrets langsung ke environment step ini
+        DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+        DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+        MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
       run: |
-        echo "Sedang menjalankan training model..."
+        echo "Menjalankan training dengan Python langsung..."
         
         
         cd workflow-ci/MLProject
         
         
-        mlflow run . --env-manager=local --experiment-name="Eksperimen_CI_Automatic_Run"
-
+        pip install pandas scikit-learn mlflow dagshub
+        
+        
+        python modelling.py --n_estimators 100 --max_depth 10
     
     - name: Download Model & Build Docker
       env: 

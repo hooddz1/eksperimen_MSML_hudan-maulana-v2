@@ -60,6 +60,8 @@ def run():
     y = df['monetary']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+    # ... (kode atas biarkan sama) ...
+
     # 5. Training & Logging
     with mlflow.start_run() as run:
         print(f"Active Run ID: {run.info.run_id}")
@@ -76,15 +78,25 @@ def run():
         mae = mean_absolute_error(y_test, predictions)
         print(f"MAE: {mae}")
 
-        # Logging Metrics
+        # Logging Metrics ke DagsHub (Untuk Nilai/Grading)
         mlflow.log_param("n_estimators", args.n_estimators)
         mlflow.log_param("max_depth", args.max_depth)
         mlflow.log_metric("mae", mae)
 
-        
-        print("Sedang mengupload model ke DagsHub...")
+        # A. LOG KE DAGSHUB (Usaha Upload)
+        print("Mencoba upload ke DagsHub...")
         mlflow.sklearn.log_model(model, "model")
-        print("Upload model selesai.")
+        
+        # B. SIMPAN LOKAL (Jalur Penyelamat untuk Docker)
+        print("Menyimpan model ke folder lokal 'model_output'...")
+        # Hapus folder lama jika ada (biar bersih)
+        import shutil
+        if os.path.exists("model_output"):
+            shutil.rmtree("model_output")
+            
+        # Simpan fisik
+        mlflow.sklearn.save_model(model, "model_output")
+        print("Model berhasil disimpan secara lokal!")
 
 if __name__ == "__main__":
     run()

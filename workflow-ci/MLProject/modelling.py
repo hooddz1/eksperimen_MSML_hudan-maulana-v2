@@ -15,7 +15,7 @@ parser.add_argument("--n_estimators", type=int, default=100)
 parser.add_argument("--max_depth", type=int, default=10)
 args = parser.parse_args()
 
-# 2. SETUP autorisasi DagsHub
+# 2. SETUP authoriasi DagsHub
 try:
     user = os.environ.get('DAGSHUB_USERNAME', 'hooddz1')
     token = os.environ.get('DAGSHUB_TOKEN', '')

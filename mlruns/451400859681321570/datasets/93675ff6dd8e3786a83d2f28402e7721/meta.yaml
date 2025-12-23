@@ -1,0 +1,8 @@
+digest: c39a04b9
+name: dataset
+profile: '{"num_rows": 70951, "num_elements": 141902}'
+schema: '{"mlflow_colspec": [{"type": "long", "name": "recency", "required": true},
+  {"type": "long", "name": "frequency", "required": true}]}'
+source: '{"tags": {"mlflow.user": "ASUS", "mlflow.source.name": "membangun_model/modelling_baseline.py",
+  "mlflow.source.type": "LOCAL", "mlflow.source.git.commit": "038bf1efb74c4f0acd0840534e3e23adebdec0c8"}}'
+source_type: code

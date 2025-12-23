@@ -60,7 +60,7 @@ jobs:
     # 7. Build Docker Model (Sesuai Screenshot)
     - name: Build Docker Model
       run: |
-        IMAGE_NAME="hudan123/clv-model-hudan:latest" # <--- GANTI USERNAME KAMU
+        IMAGE_NAME="huudz/clv-model-hudan:latest" 
         
         echo "Building Docker Image..."
         

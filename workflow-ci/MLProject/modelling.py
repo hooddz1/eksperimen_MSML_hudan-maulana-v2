@@ -9,7 +9,7 @@ import os
 import sys
 import shutil
 
-# 1. SETUP ARGUMEN (Wajib ada agar 'mlflow run' dengan parameter bisa jalan)
+# 1. SETUP ARGUMEN
 parser = argparse.ArgumentParser()
 parser.add_argument("--n_estimators", type=int, default=100)
 parser.add_argument("--max_depth", type=int, default=10)
@@ -32,6 +32,14 @@ except Exception as e:
 def run():
     print("--- Memulai Training via MLflow Project ---")
     
+    # --- PERBAIKAN UTAMA DI SINI ---
+    # Kita hapus Run ID yang dilempar oleh 'mlflow run' lokal.
+    # Ini memaksa script membuat Run ID BARU yang valid di server DagsHub.
+    if "MLFLOW_RUN_ID" in os.environ:
+        print(f"DEBUG: Menghapus Run ID Lokal ({os.environ['MLFLOW_RUN_ID']}) agar tidak konflik dengan DagsHub.")
+        os.environ.pop("MLFLOW_RUN_ID")
+    # -------------------------------
+    
     # 3. Load Data
     csv_path = "processed_clv.csv"
     if not os.path.exists(csv_path):
@@ -45,7 +53,7 @@ def run():
 
     # 4. Training
     with mlflow.start_run() as run:
-        print(f"Active Run ID: {run.info.run_id}")
+        print(f"Active DagsHub Run ID: {run.info.run_id}")
         
         model = RandomForestRegressor(n_estimators=args.n_estimators, max_depth=args.max_depth)
         model.fit(X_train, y_train)
@@ -53,15 +61,14 @@ def run():
         mae = mean_absolute_error(y_test, model.predict(X_test))
         print(f"MAE: {mae}")
         
-        # Log ke DagsHub (Sesuai Syarat Modul)
+        # Log ke DagsHub
         mlflow.log_param("n_estimators", args.n_estimators)
         mlflow.log_metric("mae", mae)
         
         print("Mencoba upload log ke DagsHub...")
         mlflow.sklearn.log_model(model, "model")
 
-        # --- SIMPAN LOKAL (KUNCI SUKSES DOCKER) ---
-        # Kita simpan di folder 'model_output' agar Docker tinggal ambil
+        # --- SIMPAN LOKAL UNTUK DOCKER ---
         print("Menyimpan artifact lokal untuk Docker...")
         if os.path.exists("model_output"):
             shutil.rmtree("model_output")

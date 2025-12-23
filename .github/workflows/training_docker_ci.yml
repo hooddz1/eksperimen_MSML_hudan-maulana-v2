@@ -11,6 +11,7 @@ env:
   MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
   DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
   DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+  MLFLOW_TRACKING_URI: "https://dagshub.com/hooddz1/eksperimen_MSML_hudan-maulana-v2.mlflow"
 
 jobs:
   build-and-deploy:

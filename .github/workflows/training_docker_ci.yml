@@ -73,5 +73,5 @@ jobs:
     # 8. Push Docker Image (Sesuai Screenshot)
     - name: Push Docker Image
       run: |
-        IMAGE_NAME="hudan123/clv-model-hudan:latest" # <--- GANTI USERNAME KAMU
+        IMAGE_NAME="huudz/clv-model-hudan:latest" 
         docker push "$IMAGE_NAME"

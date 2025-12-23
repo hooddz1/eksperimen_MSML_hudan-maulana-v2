@@ -60,7 +60,7 @@ jobs:
     # 7. Build Docker Model 
     - name: Build Docker Model
       run: |
-        IMAGE_NAME="huudz/clv-model-hudan:latest" 
+        IMAGE_NAME="huudz/clv-model-final:latest" 
         
         echo "Building Docker Image..."
         
@@ -73,5 +73,5 @@ jobs:
     # 8. Push Docker Image 
     - name: Push Docker Image
       run: |
-        IMAGE_NAME="huudz/clv-model-hudan:latest" 
+        IMAGE_NAME="huudz/clv-model-final:latest" 
         docker push "$IMAGE_NAME"

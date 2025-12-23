@@ -3,7 +3,7 @@ name: 2. Training & Docker Build (Advance)
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: 
+  workflow_dispatch: # Agar bisa dijalankan manual tombol klik
 
 env:
   # Mengambil rahasia dari GitHub Settings
@@ -41,51 +41,96 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
 
     
-    
-
-    
+    # --- STEP TRAINING 
     - name: Run Training Script Directly
       env:
+        # Kita masukkan secrets langsung ke environment step ini
         DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
         DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
         MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
         MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
       run: |
-        echo "Menjalankan training..."
+        echo "Menjalankan training dengan Python langsung..."
+        
+        
         cd workflow-ci/MLProject
-        # Tambahkan 'boto3' karena sering dibutuhkan untuk koneksi DagsHub
-        pip install pandas scikit-learn mlflow dagshub boto3
         
-        # Jalankan script
+        
+        pip install pandas scikit-learn mlflow dagshub
+        
+        
         python modelling.py --n_estimators 100 --max_depth 10
-
     
-    - name: Upload Model Artifact (Internal)
-      uses: actions/upload-artifact@v3
-      with:
-        name: my-trained-model
-        path: workflow-ci/MLProject/model_output
-        retention-days: 1
-
-    
-    - name: Download Model Artifact (Internal)
-      uses: actions/download-artifact@v3
-      with:
-        name: my-trained-model
-        path: downloaded_model
-
-    
-    - name: Build & Push Docker Image
+    - name: Download Model & Build Docker
+      env: 
+        # Pastikan Env Var ini terbaca oleh Python script
+        MLFLOW_TRACKING_URI: ${{ env.MLFLOW_TRACKING_URI }}
+        MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+        MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
       run: |
-        # GANTI username di bawah ini dengan punya kamu!
-        IMAGE_NAME="MASUKKAN_USERNAME_DOCKERMU_DISINI/clv-model-hudan:latest"
+        echo "Memulai script download model yang diperbarui..."
         
-        echo "Membangun Docker Image dari artifact lokal..."
-        ls -R downloaded_model # Cek isi folder (Debug)
+        python -c "
+        import mlflow
+        from mlflow.tracking import MlflowClient
+        import os
+        import time
         
-        # Build menggunakan path lokal (-m menunjuk ke folder hasil download)
+        # 1. Setup Koneksi
+        tracking_uri = os.environ.get('MLFLOW_TRACKING_URI')
+        print(f'Menghubungkan ke: {tracking_uri}')
+        mlflow.set_tracking_uri(tracking_uri)
+        client = MlflowClient()
+
+        # 2. Cari Run Terakhir
+        print('Mencari Run ID terbaru...')
+        runs = mlflow.search_runs(experiment_names=['Eksperimen_CI_Automatic_Run'], order_by=['start_time DESC'])
+        
+        if runs.empty:
+            raise Exception('FATAL: Tidak ada run ditemukan!')
+            
+        last_run = runs.iloc[0]
+        run_id = last_run.run_id
+        print(f'Run ID ditemukan: {run_id}')
+        
+        # 3. List Artifacts
+        print('--- Memeriksa isi Artifact di DagsHub ---')
+        artifacts = client.list_artifacts(run_id)
+        for item in artifacts:
+            print(f' - {item.path} (Ukuran: {item.file_size} bytes)')
+            
+        
+        model_exists = any(item.path == 'model' for item in artifacts)
+        if not model_exists:
+            print('PERINGATAN: Folder model tidak terlihat di root artifact. Mencoba menunggu 10 detik untuk sinkronisasi...')
+            time.sleep(10)
+
+        # 4. Download Model
+        print(f'Mencoba mendownload artifact: model')
+        local_dir = 'model_download'
+        
+        
+        try:
+            os.makedirs(local_dir, exist_ok=True)
+            path = client.download_artifacts(run_id, 'model', local_dir)
+            print(f'SUKSES! Model tersimpan di: {path}')
+        except Exception as e:
+            print(f'Gagal download pertama: {e}')
+            print('Mencoba fallback method...')
+            # Fallback
+            path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path='model', dst_path=local_dir)
+            print(f'SUKSES (Fallback)! Model tersimpan di: {path}')
+            
+        "
+        
+        # 5. Build Docker Image
+        
+        IMAGE_NAME="huudz/clv-model-hudan:latest"
+        
+        echo "Membangun Docker Image..."
+        # Path harus mengarah ke hasil download tadi
         mlflow models build-docker \
-          -m "downloaded_model" \
+          -m "model_download/model" \
           -n "$IMAGE_NAME" \
           --enable-mlserver
 

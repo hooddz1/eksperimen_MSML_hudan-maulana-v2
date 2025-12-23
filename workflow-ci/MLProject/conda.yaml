@@ -1,0 +1,14 @@
+name: clv_env_hudan_ci
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+    - mlflow
+    - pandas
+    - scikit-learn
+    - numpy
+    - matplotlib
+    - seaborn
+    - dagshub

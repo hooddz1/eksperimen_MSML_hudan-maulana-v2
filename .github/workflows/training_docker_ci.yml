@@ -57,7 +57,7 @@ jobs:
         username: "huudz"  
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    # 7. Build Docker Model (Sesuai Screenshot)
+    # 7. Build Docker Model 
     - name: Build Docker Model
       run: |
         IMAGE_NAME="huudz/clv-model-hudan:latest" 
@@ -70,7 +70,7 @@ jobs:
           -n "$IMAGE_NAME" \
           --enable-mlserver
 
-    # 8. Push Docker Image (Sesuai Screenshot)
+    # 8. Push Docker Image 
     - name: Push Docker Image
       run: |
         IMAGE_NAME="huudz/clv-model-hudan:latest" 

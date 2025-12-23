@@ -3,136 +3,75 @@ name: 2. Training & Docker Build (Advance)
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: # Agar bisa dijalankan manual tombol klik
-
-env:
-  # Mengambil rahasia dari GitHub Settings
-  MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
-  MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
-  DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
-  DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
-  MLFLOW_TRACKING_URI: "https://dagshub.com/hooddz1/eksperimen_MSML_hudan-maulana-v2.mlflow"
+    paths:
+      - 'workflow-ci/**'
+      - '.github/workflows/2_training_docker_ci.yml'
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
-    # 1. Ambil Kodingan
-    - name: Checkout Code
+    # 1. Setup Job & Checkout
+    - name: Check out code
       uses: actions/checkout@v3
 
-    # 2. Siapkan Python
-    - name: Set up Python
+    # 2. Setup Python
+    - name: Set up Python 3.9
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
 
-    # 3. Install dependencies
-    - name: Install Libraries
-      run: |
-        pip install mlflow dagshub pandas scikit-learn virtualenv
+    # 3. Install Dependencies 
+    - name: Install dependencies
+      run: pip install pandas scikit-learn mlflow dagshub boto3
 
-    # 4. Login ke Docker Hub (Agar bisa upload image)
-    - name: Login to Docker Hub
-      uses: docker/login-action@v2
-      with:
-        username: "huudz"
-        password: ${{ secrets.DOCKER_PASSWORD }}
-
-    
-    # --- STEP TRAINING 
-    - name: Run Training Script Directly
+    # 4. Set MLflow Tracking URI 
+    - name: Set MLflow Tracking URI
       env:
-        # Kita masukkan secrets langsung ke environment step ini
+        DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+      run: |
+        echo "Setting up URI..."
+        export MLFLOW_TRACKING_URI=https://dagshub.com/${{ secrets.DAGSHUB_USERNAME }}/eksperimen_MSML_hudan-maulana-v2.mlflow
+
+    # 5. Run mlflow project 
+    - name: Run mlflow project
+      env:
         DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
         DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
         MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
         MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
       run: |
-        echo "Menjalankan training dengan Python langsung..."
-        
-        
         cd workflow-ci/MLProject
         
         
-        pip install pandas scikit-learn mlflow dagshub
-        
-        
-        python modelling.py --n_estimators 100 --max_depth 10
-    
-    - name: Download Model & Build Docker
-      env: 
-        # Pastikan Env Var ini terbaca oleh Python script
-        MLFLOW_TRACKING_URI: ${{ env.MLFLOW_TRACKING_URI }}
-        MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
-        MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
+        mlflow run . --env-manager=local \
+          -P n_estimators=100 \
+          -P max_depth=10 \
+          --experiment-name="Eksperimen_CI_Automatic_Run"
+
+    # 6. Log in to Docker Hub (Sesuai Screenshot)
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: "huudz"  # <--- GANTI USERNAME KAMU
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    # 7. Build Docker Model (Sesuai Screenshot)
+    - name: Build Docker Model
       run: |
-        echo "Memulai script download model yang diperbarui..."
+        IMAGE_NAME="hudan123/clv-model-hudan:latest" # <--- GANTI USERNAME KAMU
         
-        python -c "
-        import mlflow
-        from mlflow.tracking import MlflowClient
-        import os
-        import time
-        
-        # 1. Setup Koneksi
-        tracking_uri = os.environ.get('MLFLOW_TRACKING_URI')
-        print(f'Menghubungkan ke: {tracking_uri}')
-        mlflow.set_tracking_uri(tracking_uri)
-        client = MlflowClient()
-
-        # 2. Cari Run Terakhir
-        print('Mencari Run ID terbaru...')
-        runs = mlflow.search_runs(experiment_names=['Eksperimen_CI_Automatic_Run'], order_by=['start_time DESC'])
-        
-        if runs.empty:
-            raise Exception('FATAL: Tidak ada run ditemukan!')
-            
-        last_run = runs.iloc[0]
-        run_id = last_run.run_id
-        print(f'Run ID ditemukan: {run_id}')
-        
-        # 3. List Artifacts
-        print('--- Memeriksa isi Artifact di DagsHub ---')
-        artifacts = client.list_artifacts(run_id)
-        for item in artifacts:
-            print(f' - {item.path} (Ukuran: {item.file_size} bytes)')
-            
-        
-        model_exists = any(item.path == 'model' for item in artifacts)
-        if not model_exists:
-            print('PERINGATAN: Folder model tidak terlihat di root artifact. Mencoba menunggu 10 detik untuk sinkronisasi...')
-            time.sleep(10)
-
-        # 4. Download Model
-        print(f'Mencoba mendownload artifact: model')
-        local_dir = 'model_download'
+        echo "Building Docker Image..."
         
         
-        try:
-            os.makedirs(local_dir, exist_ok=True)
-            path = client.download_artifacts(run_id, 'model', local_dir)
-            print(f'SUKSES! Model tersimpan di: {path}')
-        except Exception as e:
-            print(f'Gagal download pertama: {e}')
-            print('Mencoba fallback method...')
-            # Fallback
-            path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path='model', dst_path=local_dir)
-            print(f'SUKSES (Fallback)! Model tersimpan di: {path}')
-            
-        "
-        
-        # 5. Build Docker Image
-        
-        IMAGE_NAME="huudz/clv-model-hudan:latest"
-        
-        echo "Membangun Docker Image..."
-        # Path harus mengarah ke hasil download tadi
         mlflow models build-docker \
-          -m "model_download/model" \
+          -m "workflow-ci/MLProject/model_output" \
           -n "$IMAGE_NAME" \
           --enable-mlserver
 
-        echo "Mengupload ke Docker Hub..."
+    # 8. Push Docker Image (Sesuai Screenshot)
+    - name: Push Docker Image
+      run: |
+        IMAGE_NAME="hudan123/clv-model-hudan:latest" # <--- GANTI USERNAME KAMU
         docker push "$IMAGE_NAME"

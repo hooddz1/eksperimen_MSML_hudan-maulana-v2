@@ -43,8 +43,12 @@ jobs:
     - name: Run MLflow Project (Training)
       run: |
         echo "Sedang menjalankan training model..."
-        mlflow run Workflow-CI/MLProject --env-manager=local --experiment-name="Eksperimen_CI_Automatic_Run"
-
+        
+        # Masuk ke foldernya dulu
+        cd Workflow-CI/MLProject
+        
+        # Jalankan MLflow di folder saat ini (pakai titik)
+        mlflow run . --env-manager=local --experiment-name="Eksperimen_CI_Automatic_Run"
 
     - name: Build & Push Docker Image
       run: |
